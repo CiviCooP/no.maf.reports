@@ -15,28 +15,20 @@ class CRM_Reports_Form_Report_FailedOcrimport extends CRM_Report_Form {
     
     function __construct() {
         /*
+         * create array with transmission numbers from civicrm_failed_kid_number
+         */
+        $this->transmissionOptions = self::listTransmissionNumbers();
+        /*
          * create array with columns and filters
          */
         $this->_columns = array(
             'civicrm_contact' => array(
                 'dao' => 'CRM_Contact_DAO_Contact',
-                'fields' => array(
-                    'display_name' => array(
-                        'title'     => ts('Contact Name'),
-                        'required'  => TRUE,
-                        'default'   => TRUE,
-                        'no_repeat' => TRUE,
-                    ),
-                    'id' => array(
-                        'no_display'    => TRUE,
-                        'required'      => TRUE,
-                    ),
-                ),
                 'filters' => array(
                     'transmission' => array(
                         'title'         => ts('Transmission Number'),
                         'operatorType'  => CRM_Report_Form::OP_SELECT,
-                        'options'       =>  $transmissionOptions
+                        'options'       =>  $this->transmissionOptions
                     ),
                     'import_date' => array(
                         'title'         => ts('Import Date'),
@@ -46,6 +38,8 @@ class CRM_Reports_Form_Report_FailedOcrimport extends CRM_Report_Form {
         );
         $this->_groupFilter = FALSE;
         $this->_tagFilter = FALSE;
+        $this->_exposeContactID = FALSE;
+        $this->_customGroupExtends = "";
         parent::__construct();
     }
   
@@ -67,7 +61,33 @@ LEFT JOIN civicrm_contact contact ON kid.contact_id = contact.id";
     }
 
     function where() {
-        $this->_where = NULL;
+        $this->_where = "WHERE ";
+        $whereParts = array();
+        if (isset($this->_submitValues['transmission_value'])) {
+            /*
+             * option 0 is select all
+             */
+            if ($this->_submitValues['transmission_value'] != 0) {
+                $transmissionValue = $this->transmissionOptions[$this->_submitValues['transmission_value']];
+                $whereParts[] = "failed.transmission_number = '$transmissionValue'";
+            }
+        }
+        if (isset($this->_submitValues['import_date_from'])) {
+            if (!empty($this->_submitValues['import_date_from'])) {
+                $whereParts[] = "failed.import_date >= '".date("Ymd", strtotime($this->_submitValues['import_date_from']))."'";
+            }
+        }
+        if (isset($this->_submitValues['import_date_to'])) {
+            if (!empty($this->_submitValues['import_date_to'])) {
+                $whereParts[] = "failed.import_date <= '".date("Ymd", strtotime($this->_submitValues['import_date_to']))."'";
+            }
+        }
+        if (empty($whereParts)) {
+            $this->_where = NULL;
+        } else {
+            $whereGlued = implode(" AND ", $whereParts);
+            $this->_where = "WHERE ".$whereGlued;
+        }
     }
     function groupBy() {
         $this->_groupBy = NULL;
@@ -86,7 +106,8 @@ LEFT JOIN civicrm_contact contact ON kid.contact_id = contact.id";
             'import_date'           => array('title' => ts('Import date')),
             'amount'                => array('title' => ts('Amount')),
             'transaction_number'    => array('title' => ts('Transaction Number')),
-            'fail_message'          => array('title' => ts('Message'))
+            'message'               => array('title' => ts('Message')),          //'contact_id'            => array('title' => ts('ContactID'))
+            'contact_id'            => array('no_display' => TRUE)
         );
         
         // get the acl clauses built before we assemble the query
@@ -107,7 +128,7 @@ LEFT JOIN civicrm_contact contact ON kid.contact_id = contact.id";
             // convert display name to links
             if (array_key_exists('display_name', $row)) {
                 $url = CRM_Utils_System::url( "civicrm/contact/view",
-                    'reset=1&cid=' . $row['id'], $this->_absoluteUrl );
+                    'reset=1&cid=' . $row['contact_id'], $this->_absoluteUrl );
                 $rows[$rowNum]['display_name_link' ] = $url;
                 $rows[$rowNum]['display_name_hover'] = ts("View Contact details for this contact.");
                 $entryFound = true;
@@ -157,5 +178,20 @@ LEFT JOIN civicrm_contact contact ON kid.contact_id = contact.id";
             }
         }
         $this->assign( 'filters', $filters );
+    }
+    function listTransmissionNumbers() {
+        /*
+         * select all transmission numbers from civicrm_failed_kid_numbers
+         * and add them to array
+         */
+        $transmissionNumbers = array();
+        $transmissionNumbers[] = '- all';
+        $selectTransmissionNumbers = 
+            "SELECT DISTINCT(transmission_number) AS transmission_id FROM civicrm_failed_kid_numbers";
+        $daoTransmissionNumbers = CRM_Core_DAO::executeQuery($selectTransmissionNumbers);
+        while ($daoTransmissionNumbers->fetch()) {
+            $transmissionNumbers[] = $daoTransmissionNumbers->transmission_id;
+        }
+        return $transmissionNumbers;
     }
 }

@@ -15,7 +15,7 @@ return array (
       'description' => 'FailedOcrImport (no.maf.reports)',
       'class_name' => 'CRM_Reports_Form_Report_FailedOcrImport',
       'report_url' => 'no.maf.reports/failedocrimport',
-      'component' => '',
+      'component' => 'CiviContribute',
     ),
   ),
 );
