@@ -2,15 +2,15 @@
 <extension key="no.maf.reports" type="module">
   <file>reports</file>
   <name>MAF Norge CiviCRM specific reports</name>
-  <description>Specific CiviCRM reports for MAF Norge</description>
+  <description>Specific CiviCRM reports for MAF Norge (Failed KID numbers, Printed Giros)</description>
   <license>Academic Free License v3.0</license>
   <maintainer>
     <author>Erik Hommel (CiviCooP)</author>
     <email>erik.hommel@civicoop.org</email>
   </maintainer>
-  <releaseDate>2013-10-28</releaseDate>
+  <releaseDate>2013-11-13</releaseDate>
   <version>1.0</version>
-  <develStage>alpha</develStage>
+  <develStage>stable</develStage>
   <compatibility>
     <ver>4.3</ver>
   </compatibility>

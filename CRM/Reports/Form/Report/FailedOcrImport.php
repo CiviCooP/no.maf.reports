@@ -2,6 +2,8 @@
 /**
  * CiviCRM report Failed OCR Imports (MAF Norge)
  * 
+ * This report shows the KID numbers that failed during the OCR import process
+ * 
  * @author Erik Hommel (erik.hommel@civicoop.org, http://www.civicoop.org)
  */
 require_once 'CRM/Report/Form.php';
@@ -106,7 +108,7 @@ LEFT JOIN civicrm_contact contact ON kid.contact_id = contact.id";
             'import_date'           => array('title' => ts('Import date')),
             'amount'                => array('title' => ts('Amount')),
             'transaction_number'    => array('title' => ts('Transaction Number')),
-            'message'               => array('title' => ts('Message')),          //'contact_id'            => array('title' => ts('ContactID'))
+            'message'               => array('title' => ts('Message')),
             'contact_id'            => array('no_display' => TRUE)
         );
         
