@@ -6,15 +6,15 @@
 return array (
   0 => 
   array (
-    'name' => 'CRM_Reports_Form_Report_FailedOcrImport',
+    'name' => 'CRM_Reports_Form_Report_PrintedGiro',
     'entity' => 'ReportTemplate',
     'params' => 
     array (
       'version' => 3,
-      'label' => 'FailedOcrImport',
-      'description' => 'FailedOcrImport (no.maf.reports)',
-      'class_name' => 'CRM_Reports_Form_Report_FailedOcrImport',
-      'report_url' => 'no.maf.reports/failedocrimport',
+      'label' => 'PrintedGiro',
+      'description' => 'PrintedGiro (no.maf.reports)',
+      'class_name' => 'CRM_Reports_Form_Report_PrintedGiro',
+      'report_url' => 'no.maf.reports/printedgiro',
       'component' => 'CiviContribute',
     ),
   ),

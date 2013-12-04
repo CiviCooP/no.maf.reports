@@ -6,15 +6,15 @@
 return array (
   0 => 
   array (
-    'name' => 'CRM_Reports_Form_Report_FailedOcrImport',
+    'name' => 'CRM_Reports_Form_Report_DmExport',
     'entity' => 'ReportTemplate',
     'params' => 
     array (
       'version' => 3,
-      'label' => 'FailedOcrImport',
-      'description' => 'FailedOcrImport (no.maf.reports)',
-      'class_name' => 'CRM_Reports_Form_Report_FailedOcrImport',
-      'report_url' => 'no.maf.reports/failedocrimport',
+      'label' => 'DmExport',
+      'description' => 'Export CSV file with KID Number for DM',
+      'class_name' => 'CRM_Reports_Form_Report_DmExport',
+      'report_url' => 'no.maf.reports/dmexport',
       'component' => 'CiviContribute',
     ),
   ),
