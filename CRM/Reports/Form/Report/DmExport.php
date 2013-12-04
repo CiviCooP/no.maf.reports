@@ -290,7 +290,7 @@ class CRM_Reports_Form_Report_DmExport extends CRM_Report_Form {
 	
 	function retrieveLastContribution($contact_id) {
 		$last = array();
-		$selectLast = "SELECT * FROM civicrm_contribution WHERE contact_id = '".$contact_id."' ORDER BY receive_date DESC LIMIT 1";
+		$selectLast = "SELECT * FROM civicrm_contribution WHERE contact_id = '".$contact_id."' ORDER BY receive_date AND contribution_status_id = 1 DESC LIMIT 1";
 		$daoContr = CRM_Core_DAO::executeQuery($selectLast);
 		if ($daoContr->fetch()) {
 			return $daoContr->toArray();
