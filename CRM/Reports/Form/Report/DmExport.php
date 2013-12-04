@@ -15,6 +15,8 @@ class CRM_Reports_Form_Report_DmExport extends CRM_Report_Form {
 	
 	protected $aksjon_table;
 	protected $aksjon_fields;
+	
+	protected $dm_activity_type_id = 60;
   
 	function __construct() {
 		$fields = array();
@@ -32,6 +34,11 @@ class CRM_Reports_Form_Report_DmExport extends CRM_Report_Form {
 		}
 		
 		$this->aksjon_fields = $fields;
+		
+		$result = civicrm_api('OptionValue', 'getsingle', array('version'=>'3', 'name'=> 'Direct Mail (with KID)', 'option_group_id' => '2'));
+		if (isset($result['value'])) {
+			$this->dm_activity_type_id = $result['value'];
+		}
 	
 		$this->_columns = array(
 			'civicrm_contact' => array(
@@ -40,6 +47,11 @@ class CRM_Reports_Form_Report_DmExport extends CRM_Report_Form {
                     'activity' => array(
                         'title'         => ts('Activity Date'),
                         'operatorType'  => CRM_Report_Form::OP_DATE
+					),
+					'aksjon_id' => array(
+                        'title'         => ts('Aksjon ID'),
+                        'operatorType'  => CRM_Report_Form::OP_STRING,
+						'type' => CRM_Utils_Type::T_STRING
 					),
 				),
 			),
@@ -69,9 +81,9 @@ class CRM_Reports_Form_Report_DmExport extends CRM_Report_Form {
 			at.id as activity_target_id, 
 			act.id as activity_id,
 			".$this->aksjon_table.".".$this->aksjon_fields['aksjon_id']['column_name']." AS aksjon_id,
-			COUNT(tot_contr.id) AS total_contributions,
-			SUM(tot_contr.total_amount) AS total_amount,
-			SUM(tot_contr.non_deductible_amount) AS total_non_deductible_amount,
+			'' AS total_contributions,
+			'' AS total_amount,
+			'' AS total_non_deductible_amount,
 			'' as last_receive_date,
 			'' as last_amount";
 	}
@@ -84,19 +96,18 @@ class CRM_Reports_Form_Report_DmExport extends CRM_Report_Form {
          * contribution entity
          */
         $this->_from = 
-			"FROM civicrm_activity act
-			JOIN civicrm_activity_target at ON act.id = at.activity_id
+			"FROM civicrm_activity_target at
+			INNER JOIN civicrm_activity act ON act.id = at.activity_id
 			LEFT JOIN civicrm_contact contact ON at.target_contact_id = contact.id
-			LEFT JOIN civicrm_address address ON contact.id = address.contact_id
+			LEFT JOIN civicrm_address address ON contact.id = address.contact_id AND address.is_primary = 1
 			LEFT JOIN civicrm_country country ON address.country_id = country.id
-			LEFT JOIN ".$this->aksjon_table." ON act.id = ".$this->aksjon_table.".entity_id
-			JOIN civicrm_contribution tot_contr ON tot_contr.contact_id = contact.id";
+			LEFT JOIN ".$this->aksjon_table." ON act.id = ".$this->aksjon_table.".entity_id";
     }
 
     function where() {
-		$DM_with_kid_type_id = 60; //DM with KID activities
+		$DM_with_kid_type_id = $this->dm_activity_type_id; //DM with KID activities
         $this->_where = NULL;
-        $this->_where = "WHERE act.activity_type_id = '".$DM_with_kid_type_id."' AND tot_contr.contribution_status_id = 1 AND YEAR(tot_contr.receive_date) = YEAR(CURDATE())";
+        $this->_where = "WHERE act.activity_type_id = '".$DM_with_kid_type_id."'";
         if (isset($this->_submitValues['activity_from'])) {
             if (!empty($this->_submitValues['activity_from'])) {
                 $this->_where .= " AND act.activity_date_time >= '".date("Y-m-d", strtotime($this->_submitValues['activity_from']))."'";
@@ -107,10 +118,22 @@ class CRM_Reports_Form_Report_DmExport extends CRM_Report_Form {
                 $this->_where .= " AND act.activity_date_time <= '".date("Y-m-d", strtotime($this->_submitValues['activity_to']))."'";
             }
         }
+
+		$op = isset($this->_submitValues['aksjon_id_op']) ? $this->_submitValues['aksjon_id_op'] : false;
+		$value = isset($this->_submitValues['aksjon_id_value']) ? $this->_submitValues['aksjon_id_value'] : null;
+		$min = isset($this->_submitValues['aksjon_id_min']) ? $this->_submitValues['aksjon_id_min'] : null;
+		$max = isset($this->_submitValues['aksjon_id_max']) ? $this->_submitValues['aksjon_id_max'] : null;
+		
+		if ($op) {
+			$clause = $this->whereClause($this->_columns['civicrm_contact']['filters']['aksjon_id'], $op, $value, $min, $max);
+			if (!empty($clause)) {
+				$this->_where .= " AND ".str_replace("contact_civireport.aksjon_id", $this->aksjon_table.".".$this->aksjon_fields['aksjon_id']['column_name'], $clause);
+			}
+		}
     }
     
 	function groupBy() {
-        $this->_groupBy = "GROUP BY tot_contr.contact_id";
+        $this->_groupBy = NULL;
     }
     
 	function orderBy() {
@@ -131,9 +154,9 @@ class CRM_Reports_Form_Report_DmExport extends CRM_Report_Form {
             'country'                   => array('title' => ts('Country')),
             'kid_number'                => array('title' => ts('KID number')),
 			'aksjon_id'                => array('title' => ts('Aksjon ID')),
-			'total_contributions'       => array('title' => ts('Total contributions')),
-			'total_amount'              => array('title' => ts('Total amount')),
-			'total_non_deductible_amount'     => array('title' => ts('Total Non deductible amount')),
+			'total_contributions'       => array('title' => ts('Total contributions (this year)')),
+			'total_amount'              => array('title' => ts('Total amount (this year)')),
+			'total_non_deductible_amount'     => array('title' => ts('Total Non deductible amount (this year)')),
 			'last_receive_date'              => array('title' => ts('Last contribution')),
 			'last_amount'              => array('title' => ts('Last contribution amount')),
 			'activity_target_id'        => array('no_display' => TRUE),
@@ -151,7 +174,7 @@ class CRM_Reports_Form_Report_DmExport extends CRM_Report_Form {
         $this->endPostProcess($rows);
     }
 	
-	    function alterDisplay(&$rows) {
+	function alterDisplay(&$rows) {
         $entryFound = false;
         foreach ($rows as $rowNum => $row) {
             if (array_key_exists('display_name', $row)) {
@@ -184,6 +207,19 @@ class CRM_Reports_Form_Report_DmExport extends CRM_Report_Form {
 				}
 				if (isset($last['total_amount'])) {
 					$rows[$rowNum]['last_amount'] = $last['total_amount'];
+				}
+            }
+			
+			if (array_key_exists('total_contributions', $row) && array_key_exists('total_amount', $row) && array_key_exists('total_non_deductible_amount', $row)) {
+				$last = $this->retrieveTotalContributions($row['contact_id']);
+				if (isset($last['total_contributions'])) {
+					$rows[$rowNum]['total_contributions'] = $last['total_contributions'];
+				}
+				if (isset($last['total_amount'])) {
+					$rows[$rowNum]['total_amount'] = $last['total_amount'];
+				}
+				if (isset($last['total_non_deductible_amount'])) {
+					$rows[$rowNum]['total_non_deductible_amount'] = $last['total_non_deductible_amount'];
 				}
             }
             // skip looking further in rows, if first row itself doesn't
@@ -249,7 +285,7 @@ class CRM_Reports_Form_Report_DmExport extends CRM_Report_Form {
             return ts("not found");
         }
 		
-        $selectKid = "SELECT kid_number FROM civicrm_kid_number WHERE entity = 'ActivityTarget' AND entity_id = $activity_target_id";
+        $selectKid = "SELECT kid_number FROM civicrm_kid_number WHERE entity = 'ActivityTarget' AND entity_id = $activity_id AND contact_id = $contact_id";
         $daoKid = CRM_Core_DAO::executeQuery($selectKid);
         if ($daoKid->fetch()) {
             if (isset($daoKid->kid_number) && !empty($daoKid->kid_number)) {
@@ -290,7 +326,23 @@ class CRM_Reports_Form_Report_DmExport extends CRM_Report_Form {
 	
 	function retrieveLastContribution($contact_id) {
 		$last = array();
-		$selectLast = "SELECT * FROM civicrm_contribution WHERE contact_id = '".$contact_id."' ORDER BY receive_date AND contribution_status_id = 1 DESC LIMIT 1";
+		$selectLast = "SELECT * FROM civicrm_contribution WHERE contact_id = '".$contact_id."' AND contribution_status_id = 1  ORDER BY receive_date DESC LIMIT 1";
+		$daoContr = CRM_Core_DAO::executeQuery($selectLast);
+		if ($daoContr->fetch()) {
+			return $daoContr->toArray();
+		}
+		return $last;
+	}
+	
+	function retrieveTotalContributions($contact_id) {
+		$last = array();
+		$selectLast = "SELECT 
+			COUNT(tot_contr.id) AS total_contributions, 
+			SUM(tot_contr.total_amount) AS total_amount, 
+			SUM(tot_contr.non_deductible_amount) AS total_non_deductible_amount 
+			FROM civicrm_contribution tot_contr 
+			WHERE contact_id = '".$contact_id."'  AND tot_contr.contribution_status_id = 1 AND YEAR(tot_contr.receive_date) = YEAR(CURDATE()) 
+			ORDER BY receive_date AND contribution_status_id = 1 DESC LIMIT 1";
 		$daoContr = CRM_Core_DAO::executeQuery($selectLast);
 		if ($daoContr->fetch()) {
 			return $daoContr->toArray();
