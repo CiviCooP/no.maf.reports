@@ -6,15 +6,15 @@
 return array (
   0 => 
   array (
-    'name' => 'CRM_Reports_Form_Report_DmExport',
+    'name' => 'CRM_Reports_Form_Report_GroupDonationsReport',
     'entity' => 'ReportTemplate',
     'params' => 
     array (
       'version' => 3,
-      'label' => 'DmExport',
-      'description' => 'Export CSV file with KID Number for DM',
-      'class_name' => 'CRM_Reports_Form_Report_DmExport',
-      'report_url' => 'no.maf.reports/dmexport',
+      'label' => 'GroupDonationsReport',
+      'description' => 'GroupDonationsReport (no.maf.reports)',
+      'class_name' => 'CRM_Reports_Form_Report_GroupDonationsReport',
+      'report_url' => 'no.maf.reports/groupdonationsreport',
       'component' => 'CiviContribute',
     ),
   ),
