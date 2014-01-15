@@ -11,8 +11,8 @@ return array (
     'params' => 
     array (
       'version' => 3,
-      'label' => 'GroupDonationsReport',
-      'description' => 'GroupDonationsReport (no.maf.reports)',
+      'label' => 'Donations per group',
+      'description' => 'Donations per group',
       'class_name' => 'CRM_Reports_Form_Report_GroupDonationsReport',
       'report_url' => 'no.maf.reports/groupdonationsreport',
       'component' => 'CiviContribute',
