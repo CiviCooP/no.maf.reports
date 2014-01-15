@@ -81,13 +81,14 @@ class CRM_Reports_Form_Report_GroupDonationsReport extends CRM_Report_Form {
               contribution.receive_date >= '".$startDate."' AND 
               contribution.receive_date <= '".$endDate."' AND 
               (`csh_added`.`date` IS NULL OR `csh_added`.`date` <= `contribution`.`receive_date`) AND 
-              (`csh_removed`.`date` IS NULL OR `csh_removed`.`date` >= `contribution`.`receive_date`)
+              (`csh_removed`.`date` IS NULL OR `csh_removed`.`date` >= `contribution`.`receive_date`) AND
+              contribution.contribution_status_id = 1
           WHERE `group`.`id` IN (".implode(',', $this->group_ids).") 
           GROUP BY `group`.`id`
           
           UNION SELECT '2' AS `sort`,0 AS `gid`, 'Other' AS `group`, SUM(contribution1.total_amount) AS amount, COUNT(*) AS `count`
           FROM `civicrm_contribution` `contribution1`
-          WHERE contribution1.receive_date >= '".$startDate."' AND contribution1.receive_date <= '".$endDate."' 
+          WHERE contribution1.receive_date >= '".$startDate."' AND contribution1.receive_date <= '".$endDate."' AND contribution1.contribution_status_id = 1
           AND contribution1.id NOT IN (
             SELECT contribution.id
             FROM `civicrm_group` `group`
@@ -99,7 +100,8 @@ class CRM_Reports_Form_Report_GroupDonationsReport extends CRM_Report_Form {
               contribution.receive_date >= '".$startDate."' AND 
               contribution.receive_date <= '".$endDate."' AND 
               (`csh_added`.`date` IS NULL OR `csh_added`.`date` <= `contribution`.`receive_date`) AND 
-              (`csh_removed`.`date` IS NULL OR `csh_removed`.`date` >= `contribution`.`receive_date`)
+              (`csh_removed`.`date` IS NULL OR `csh_removed`.`date` >= `contribution`.`receive_date`) AND
+              contribution.contribution_status_id = 1
             WHERE `group`.`id` IN (".implode(',', $this->group_ids).") 
             AND contribution.id IS NOT NULL
           )
