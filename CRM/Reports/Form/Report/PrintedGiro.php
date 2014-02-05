@@ -73,12 +73,12 @@ LEFT JOIN civicrm_country country ON address.country_id = country.id";
         $this->_where = "WHERE off.payment_type_id = 3 AND contr.contribution_status_id = 2";
         if (isset($this->_submitValues['receive_from'])) {
             if (!empty($this->_submitValues['receive_from'])) {
-                $this->_where .= " AND contr.receive_date >= '".date("Ymd", strtotime($this->_submitValues['receive_from']))."'";
+                $this->_where .= " AND contr.receive_date >= '".date("Y-m-d", strtotime($this->_submitValues['receive_from']))."'";
             }
         }
         if (isset($this->_submitValues['receive_to'])) {
-            if (!empty($this->submitValues['receive_to'])) {
-                $this->_where .= " AND contr.receive_date <= '".date("Ymd", strtotime($this->_submitValues['receive_to']))."'";
+            if (!empty($this->_submitValues['receive_to'])) {
+                $this->_where .= " AND contr.receive_date <= '".date("Y-m-d", strtotime($this->_submitValues['receive_to']))."'";
             }
         }
     }
