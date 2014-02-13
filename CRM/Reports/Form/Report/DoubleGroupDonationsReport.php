@@ -64,7 +64,7 @@ class CRM_Reports_Form_Report_DoubleGroupDonationsReport extends CRM_Report_Form
   }
 
   function preProcess() {
-    $this->assign('reportTitle', ts('Donations in group other Report'));
+    $this->assign('reportTitle', ts('Multiple group membership on moment of donation'));
     parent::preProcess();
   }
 
