@@ -90,7 +90,8 @@ class CRM_Reports_Form_Report_DoubleGroupDonationsReport extends CRM_Report_Form
      * retrieve children from selected parents
      */
     $parent_group_params = array('id' => $this->_submitValues['parent_value']);
-    $parent_group = civicrm_api3('Group', 'Getsingle', $parent_group_params);
+    //$parent_group = civicrm_api3('Group', 'Getsingle', $parent_group_params);
+    $parent_group['children'] = implode(',', CRM_Contact_BAO_GroupNesting::getDescendentGroupIds(array($parent_group_params['id']), false));
 
     $this->_columnHeaders = array(
       'contact_id' => array('title' => ts('Id')),
