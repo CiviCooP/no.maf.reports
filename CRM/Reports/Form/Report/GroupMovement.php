@@ -286,9 +286,6 @@ class CRM_Reports_Form_Report_GroupMovement extends CRM_Report_Form {
 "SELECT * FROM civicrm_subscription_history WHERE group_id <> $groupId AND contact_id = $contact".$this->_whereDate;
             $daoContact = CRM_Core_DAO::executeQuery($contactQuery);
             while ($daoContact->fetch()) {
-                CRM_Core_Error::debug("daoContact", $daoContact);
-                CRM_Core_Error::debug("group", $groupId);
-                exit();
                 if (!in_array($daoContact->group_id, $movementTotals)) {
                     if ($daoContact->status == "Added") {
                         $movementTotals[$daoContact->group_id['to']] = 1;
