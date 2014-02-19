@@ -30,18 +30,18 @@ class CRM_Reports_Form_Report_GroupMovement extends CRM_Report_Form {
          * if there is a group called Donors, set to default
          * (specific to MAF Norge)
          */
-        $group_params = array(
+        $groupParams = array(
             'options'   => array('limit' => 99999)
         );
-        $groups_api = civicrm_api3('Group', 'Get', $group_params);
-        $group_list = array();
-        $group_default = 0;
-        foreach($groups_api['values'] as $group_id => $group_api) {
-            if (!empty($group_api['children'])) {
-                $group_list[$group_id] = $group_api['title'];
+        $apiGroups = civicrm_api3('Group', 'Get', $groupParams);
+        $groupList = array();
+        $groupDefault = 0;
+        foreach($apiGroups['values'] as $groupId => $apiGroup) {
+            if (!empty($apiGroup['children'])) {
+                $groupList[$groupId] = $apiGroup['title'];
             }
-            if ($group_api['title'] == "Donors") {
-                $group_default = $group_id;
+            if ($apiGroup['title'] == "Donors") {
+                $groupDefault = $groupId;
             }
         }
         /*
@@ -64,7 +64,7 @@ class CRM_Reports_Form_Report_GroupMovement extends CRM_Report_Form {
                         'operatorType'  => CRM_Report_Form::OP_SELECT,
                         'required'      => TRUE,
                         'default'       => 6508,
-                        'options'       => $group_list
+                        'options'       => $groupList
                     ),
                     'period' => array(
                         'title'         => ts('Period'),
@@ -105,31 +105,31 @@ class CRM_Reports_Form_Report_GroupMovement extends CRM_Report_Form {
          * retrieve all subscription history in selected period for 
          * child groups of parent selected
          */
-        $submit_values = $this->getVar('_submitValues');
+        $submitValues = $this->getVar('_submitValues');
         /*
          * retrieve children from selected parents
          */
-        $parent_group_params = array('id' => $submit_values['parent_value']);
-        $parent_group = civicrm_api3('Group', 'Getsingle', $parent_group_params);
+        $parentGroupParams = array('id' => $submitValues['parent_value']);
+        $parentGroup = civicrm_api3('Group', 'Getsingle', $parentGroupParams);
         $sql = "SELECT DISTINCT(group_id) FROM civicrm_subscription_history WHERE group_id IN (";
-        $sql .= $parent_group['children'].")";
+        $sql .= $parentGroup['children'].")";
         /*
          * add date range if required
          */
-        if (!empty($submit_values['period_from'])) {
-            $period_from = date("Y-m-d", strtotime($submit_values['period_from']));
+        if (!empty($submitValues['period_from'])) {
+            $periodFrom = date("Y-m-d", strtotime($submitValues['period_from']));
         }
-        if (!empty($submit_values['period_to'])) {
-            $period_to = date("Y-m-d", strtotime($submit_values['period_to']));
+        if (!empty($submitValues['period_to'])) {
+            $periodTo = date("Y-m-d", strtotime($submitValues['period_to']));
         }
-        if ($period_from && $period_to) {
-            $this->_whereDate = " AND date BETWEEN '$period_from' AND '$period_to'";
+        if ($periodFrom && $periodTo) {
+            $this->_whereDate = " AND date BETWEEN '$periodFrom' AND '$periodTo'";
         } else {
-            if ($period_from) {
-                $this->_whereDate = " AND date >= '$period_from'";
+            if ($periodFrom) {
+                $this->_whereDate = " AND date >= '$periodFrom'";
             }
-            if ($period_to) {
-                $this->_whereDate = " AND date <= '$period_to'";
+            if ($periodTo) {
+                $this->_whereDate = " AND date <= '$periodTo'";
             }
         }
         $sql .= $this->_whereDate." ORDER BY group_id";
@@ -155,7 +155,7 @@ class CRM_Reports_Form_Report_GroupMovement extends CRM_Report_Form {
     function addFilters( ) {
         require_once 'CRM/Utils/Date.php';
         require_once 'CRM/Core/Form/Date.php';
-        $options = $filters = array();
+        $filters = array();
         $count = 1;
         foreach ( $this->_filters as $table => $attributes ) {
             foreach ( $attributes as $fieldName => $field ) {
@@ -200,7 +200,7 @@ class CRM_Reports_Form_Report_GroupMovement extends CRM_Report_Form {
         // use this method to modify $this->_columnHeaders
         $this->modifyColumnHeaders( );
         $rows = array();
-        $previous_group = 0;
+        $previousGroup = 0;
         /*
          * read all selected groups
          */
@@ -209,38 +209,38 @@ class CRM_Reports_Form_Report_GroupMovement extends CRM_Report_Form {
             /*
              * build row for each group
              */
-            $child_group = civicrm_api3('Group', 'Getsingle', array('id' => $dao->group_id));
+            $childGroup = civicrm_api3('Group', 'Getsingle', array('id' => $dao->group_id));
             $row['group_id'] = $dao->group_id;
-            $row['group'] = $child_group['title'];
+            $row['group'] = $childGroup['title'];
             
-            $group_adds_query = 
+            $groupAddsQuery = 
 "SELECT COUNT(*) AS count_adds FROM civicrm_subscription_history WHERE 
     group_id = {$dao->group_id} AND status = 'Added'".$this->_whereDate;
-            $dao_adds = CRM_Core_DAO::executeQuery($group_adds_query);
-            if ($dao_adds->fetch()) {
-                $row['adds'] = $dao_adds->count_adds;
+            $daoAdds = CRM_Core_DAO::executeQuery($groupAddsQuery);
+            if ($daoAdds->fetch()) {
+                $row['adds'] = $daoAdds->count_adds;
             }
-            unset($dao_adds, $group_adds_query);
+            unset($daoAdds, $groupAddsQuery);
             
-            $group_removes_query = 
+            $groupRemovesQuery = 
 "SELECT COUNT(*) AS count_removes FROM civicrm_subscription_history WHERE 
     group_id = {$dao->group_id} AND status = 'Removed'".$this->_whereDate;
-            $dao_removes = CRM_Core_DAO::executeQuery($group_removes_query);
-            if ($dao_removes->fetch()) {
-                $row['removes'] = $dao_removes->count_removes;
+            $daoRemoves = CRM_Core_DAO::executeQuery($groupRemovesQuery);
+            if ($daoRemoves->fetch()) {
+                $row['removes'] = $daoRemoves->count_removes;
             } 
-            unset($dao_removes, $group_removes_query);
+            unset($daoRemoves, $groupRemovesQuery);
             
-            $group_deletes_query = 
+            $groupDeletesQuery = 
 "SELECT COUNT(*) AS count_deletes FROM civicrm_subscription_history WHERE 
     group_id = {$dao->group_id} AND status = 'Deleted'".$this->_whereDate;
-            $dao_deletes = CRM_Core_DAO::executeQuery($group_deletes_query);
-            if ($dao_deletes->fetch()) {
-                $row['deletes'] = $dao_deletes->count_deletes;
+            $daoDeletes = CRM_Core_DAO::executeQuery($groupDeletesQuery);
+            if ($daoDeletes->fetch()) {
+                $row['deletes'] = $daoDeletes->count_deletes;
             } 
-            unset($dao_deletes, $group_deletes_query);
+            unset($daoDeletes, $groupDeletesQuery);
             
-            $row['detail'] = $this->createMovementDetail($dao->group_id);
+            //$row['detail'] = $this->createMovementDetail($dao->group_id);
             
             $rows[] = $row;
             
@@ -250,57 +250,63 @@ class CRM_Reports_Form_Report_GroupMovement extends CRM_Report_Form {
      * Function to create the movement detail within the group. This
      * is how many where added to group x, came from group z etc.
      * 
+     * @todo function not used now, needs to be discussed with Steinar at sprint
+     * 
      * @author Erik Hommel (erik.hommel@civicoop.org)
      * @date 5 Feb 2014
-     * @param int $group_id
+     * @param int $groupId
      * @return string $detail
      */
-    function createMovementDetail($group_id) {
+    function createMovementDetail($groupId) {
         $detail = "";
-        if (empty($group_id) || !is_numeric($group_id)) {
+        if (empty($groupId) || !is_numeric($groupId)) {
             return $detail;
         }
         /*
          * first select all contacts that have history in the group in the
          * selected period and store them in array
          */
-        $movement_contacts = array();
-        $movement_query = 
+        $movementContacts = array();
+        $movementQuery = 
 "SELECT DISTINCT(contact_id) FROM civicrm_subscription_history 
-    WHERE group_id = $group_id".$this->_whereDate;
-        $dao_movement = CRM_Core_DAO::executeQuery($movement_query);
-        while ($dao_movement->fetch()) {
-            $movement_contacts[] = $dao_movement->contact_id;
+    WHERE group_id = $groupId".$this->_whereDate;       
+        $daoMovement = CRM_Core_DAO::executeQuery($movementQuery);
+        while ($daoMovement->fetch()) {
+            $movementContacts[] = $daoMovement->contact_id;
         }
-        unset($movement_query, $dao_movement);
+        unset($movementQuery, $daoMovement);
         
-        $movement_totals = array();
+        $movementTotals = array();
         /*
          * now select subscription history for each contact and
          * add to group element in total array
          */
-        foreach ($movement_contacts as $contact) {
-            $contact_query = 
-"SELECT * FROM civicrm_subscription_history WHERE contact_id = $contact".$this->_whereDate;
-            $dao_contact = CRM_Core_DAO::executeQuery($contact_query);
-            while ($dao_contact->fetch()) {
-                if (!in_array($dao_contact->group_id, $movement_totals)) {
-                    if ($dao_contact->status == "Added") {
-                        $movement_totals[$dao_contact->group_id['to']] = 1;
-                        $movement_totals[$dao_contact->group_id['from']] = 0;
+        foreach ($movementContacts as $contact) {
+            $contactQuery = 
+"SELECT * FROM civicrm_subscription_history WHERE group_id <> $groupId AND contact_id = $contact".$this->_whereDate;
+            $daoContact = CRM_Core_DAO::executeQuery($contactQuery);
+            while ($daoContact->fetch()) {
+                CRM_Core_Error::debug("daoContact", $daoContact);
+                CRM_Core_Error::debug("group", $groupId);
+                exit();
+                if (!in_array($daoContact->group_id, $movementTotals)) {
+                    if ($daoContact->status == "Added") {
+                        $movementTotals[$daoContact->group_id['to']] = 1;
+                        $movementTotals[$daoContact->group_id['from']] = 0;
                     } else {
-                        $movement_totals[$dao_contact->group_id['to']] = 0;
-                        $movement_totals[$dao_contact->group_id['from']] = 1;
+                        $movementTotals[$daoContact->group_id['to']] = 0;
+                        $movementTotals[$daoContact->group_id['from']] = 1;
                     }
                 } else {
-                    if ($dao_contact->status == "Added") {
-                        $movement_totals[$dao_contact->group_id['to']]++;
+                    if ($daoContact->status == "Added") {
+                        $movementTotals[$daoContact->group_id['to']]++;
                     } else {
-                        $movement_totals[$dao_contact->group_id['from']]++;                        
+                        $movementTotals[$daoContact->group_id['from']]++;                        
                     }
                 }
             }
-            unset($dao_contact, $contact_query);
+            unset($daoContact, $contactQuery);
         return $detail;
+        }
     }
 }
