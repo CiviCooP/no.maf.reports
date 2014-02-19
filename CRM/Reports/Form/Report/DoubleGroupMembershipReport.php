@@ -1,6 +1,6 @@
 <?php
 
-class CRM_Reports_Form_Report_OtherGroupDonationsReport extends CRM_Report_Form {
+class CRM_Reports_Form_Report_DoubleGroupMembershipReport extends CRM_Report_Form {
 
   protected $_addressField = FALSE;
   protected $_emailField = FALSE;
@@ -43,10 +43,7 @@ class CRM_Reports_Form_Report_OtherGroupDonationsReport extends CRM_Report_Form 
             'default' => $group_default,
             'options' => $group_list
           ),
-          'contribution_date' => array(
-            'title' => ts('Contribution date'),
-            'operatorType' => CRM_Report_Form::OP_DATE)
-        ),
+				),
       ),
     );
     $this->_groupFilter = FALSE;
@@ -64,7 +61,7 @@ class CRM_Reports_Form_Report_OtherGroupDonationsReport extends CRM_Report_Form 
   }
 
   function preProcess() {
-    $this->assign('reportTitle', ts('Donations in group other Report'));
+    $this->assign('reportTitle', ts('Multiple group membership at this moment'));
     parent::preProcess();
   }
 
@@ -72,20 +69,7 @@ class CRM_Reports_Form_Report_OtherGroupDonationsReport extends CRM_Report_Form 
 
     $this->beginPostProcess();
 
-    $startDate = date('Ymd');
-    $endDate = date('Ymd');
 
-    if (isset($this->_submitValues['contribution_date_from'])) {
-      if (!empty($this->_submitValues['contribution_date_from'])) {
-        $startDate = date("Ymd", strtotime($this->_submitValues['contribution_date_from']));
-      }
-    }
-    if (isset($this->_submitValues['contribution_date_to'])) {
-      if (!empty($this->_submitValues['contribution_date_to'])) {
-        $endDate = date("Ymd", strtotime($this->_submitValues['contribution_date_to']));
-      }
-    }
-    
     /*
      * retrieve children from selected parents
      */
@@ -93,35 +77,38 @@ class CRM_Reports_Form_Report_OtherGroupDonationsReport extends CRM_Report_Form 
     //$parent_group = civicrm_api3('Group', 'Getsingle', $parent_group_params);
     $parent_group['children'] = implode(',', CRM_Contact_BAO_GroupNesting::getDescendentGroupIds(array($parent_group_params['id']), false));
 
+
+
     $this->_columnHeaders = array(
       'contact_id' => array('title' => ts('Id')),
       'display_name' => array('title' => ts('Contact')),
-      'total_amount' => array('title' => ts('Total amount')),
-      'receive_date' => array('title' => ts('Receive date')),
+      'count' => array('title' => ts('Total groups')),
     );
 
-    // get the acl clauses built before we assemble the query
-    $sql = "SELECT `contact`.`id` as `contact_id`, `contact`.`display_name`, `contribution1`.`total_amount`, `contribution1`.`receive_date`
-          FROM `civicrm_contribution` `contribution1` INNER JOIN `civicrm_contact` `contact` ON `contribution1`.`contact_id` = `contact`.`id`
-          WHERE contribution1.receive_date >= '" . $startDate . "' AND contribution1.receive_date <= '" . $endDate . "' AND contribution1.contribution_status_id = 1
-          AND contribution1.id NOT IN (
-            SELECT contribution.id
-            FROM `civicrm_group` `group`
-            LEFT JOIN `civicrm_group_contact` `gc` ON `group`.`id` = `gc`.`group_id` 
-            LEFT JOIN `civicrm_subscription_history` `csh_added` ON `gc`.`contact_id` = `csh_added`.`contact_id` AND `group`.`id` = `csh_added`.`group_id` AND `csh_added`.`status` = 'Added' 
-            LEFT JOIN `civicrm_subscription_history` `csh_removed` ON `gc`.`contact_id` = `csh_removed`.`contact_id` AND `group`.`id` = `csh_removed`.`group_id` AND `csh_removed`.`status` = 'Removed' 
-            LEFT JOIN `civicrm_contribution` `contribution` ON 
-              `gc`.`contact_id` = `contribution`.`contact_id` AND 
-              contribution.receive_date >= '" . $startDate . "' AND 
-              contribution.receive_date <= '" . $endDate . "' AND 
-              (`csh_added`.`date` IS NULL OR `csh_added`.`date` <= `contribution`.`receive_date`) AND 
-              (`csh_removed`.`date` IS NULL OR `csh_removed`.`date` >= `contribution`.`receive_date`) AND
-              contribution.contribution_status_id = 1
-            WHERE `group`.`id` IN (" . $parent_group['children'] . ") 
-            AND contribution.id IS NOT NULL
-          )
-          ORDER BY `contact`.`display_name`";
+		$date = date('Y-m-d H:i:s');
 
+    $sql = "SELECT 
+        `c`.`id` AS `contact_id`,  
+        `c`.`display_name` AS `display_name`,
+        count(`c`.`id`) AS `count`
+        FROM `civicrm_contact` `c`
+        INNER JOIN `civicrm_group_contact` `gc` ON `c`.`id` = `gc`.`contact_id` 
+        LEFT JOIN `civicrm_subscription_history` `csh_added` ON 
+          `c`.`id` = `csh_added`.`contact_id` AND 
+          `gc`.`group_id` = `csh_added`.`group_id` AND 
+          `csh_added`.`status` = 'Added' 
+        LEFT JOIN `civicrm_subscription_history` `csh_removed` ON 
+          `c`.`id` = `csh_removed`.`contact_id` AND 
+          `gc`.`group_id` = `csh_removed`.`group_id` AND 
+          `csh_removed`.`status` = 'Removed' 
+        LEFT JOIN `civicrm_group` `g` ON `gc`.`group_id` = `g`.`id`
+        WHERE
+          `g`.`id` IN (" . $parent_group['children'] . ") 
+          AND (`csh_added`.`date` IS NULL OR `csh_added`.`date` <= '".$date."') 
+          AND (`csh_removed`.`date` IS NULL OR `csh_removed`.`date` >= '".$date."')
+        GROUP BY `c`.`id`
+        HAVING count(`c`.`id`) > 1
+        ORDER BY `c`.`display_name`";
 
     $rows = array();
     $this->buildRows($sql, $rows);
