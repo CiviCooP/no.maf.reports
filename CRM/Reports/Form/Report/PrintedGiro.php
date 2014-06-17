@@ -77,7 +77,7 @@ LEFT JOIN civicrm_country country ON address.country_id = country.id";
             }
         }
         if (isset($this->_submitValues['receive_to'])) {
-            if (!empty($this->submitValues['receive_to'])) {
+            if (!empty($this->_submitValues['receive_to'])) {
                 $this->_where .= " AND contr.receive_date <= '".date("Y-m-d", strtotime($this->_submitValues['receive_to']))."'";
             }
         }
