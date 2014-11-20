@@ -40,7 +40,7 @@ class CRM_Reports_Form_Report_GroupMovement extends CRM_Report_Form {
             if (!empty($apiGroup['children'])) {
                 $groupList[$groupId] = $apiGroup['title'];
             }
-            if ($apiGroup['title'] == "Donors") {
+            if ($apiGroup['title'] == "Donor Journeys") {
                 $groupDefault = $groupId;
             }
         }
@@ -63,7 +63,7 @@ class CRM_Reports_Form_Report_GroupMovement extends CRM_Report_Form {
                         'title'         => ts('Parent Group'),
                         'operatorType'  => CRM_Report_Form::OP_SELECT,
                         'required'      => TRUE,
-                        'default'       => 6508,
+                        'default'       => $groupDefault,
                         'options'       => $groupList
                     ),
                     'period' => array(
@@ -106,36 +106,40 @@ class CRM_Reports_Form_Report_GroupMovement extends CRM_Report_Form {
          * child groups of parent selected
          */
         $submitValues = $this->getVar('_submitValues');
-        /*
-         * retrieve children from selected parents
-         */
-        $parentGroupParams = array('id' => $submitValues['parent_value']);
-        $parentGroup = civicrm_api3('Group', 'Getsingle', $parentGroupParams);
-        $sql = "SELECT DISTINCT(group_id) FROM civicrm_subscription_history WHERE group_id IN (";
-        $sql .= $parentGroup['children'].")";
-        /*
-         * add date range if required
-         */
-        if (!empty($submitValues['period_from'])) {
-            $periodFrom = date("Y-m-d", strtotime($submitValues['period_from']));
-        }
-        if (!empty($submitValues['period_to'])) {
-            $periodTo = date("Y-m-d", strtotime($submitValues['period_to']));
-        }
-        if ($periodFrom && $periodTo) {
-            $this->_whereDate = " AND date BETWEEN '$periodFrom' AND '$periodTo'";
-        } else {
-            if ($periodFrom) {
-                $this->_whereDate = " AND date >= '$periodFrom'";
+        if (!empty($submitValues)) {
+            /*
+             * retrieve children from selected parents
+             */
+            if (!empty($submitValues['parent_value'])) {
+                $parentGroupParams = array('id' => $submitValues['parent_value']);
+                $parentGroup = civicrm_api3('Group', 'Getsingle', $parentGroupParams);
+                $sql = "SELECT DISTINCT(group_id) FROM civicrm_subscription_history WHERE group_id IN (";
+                $sql .= $parentGroup['children'].")";
             }
-            if ($periodTo) {
-                $this->_whereDate = " AND date <= '$periodTo'";
+            /*
+             * add date range if required
+             */
+            if (!empty($submitValues['period_from'])) {
+                $periodFrom = date("Y-m-d", strtotime($submitValues['period_from']));
             }
-        }
-        $sql .= $this->_whereDate." ORDER BY group_id";
+            if (!empty($submitValues['period_to'])) {
+                $periodTo = date("Y-m-d", strtotime($submitValues['period_to']));
+            }
+            if ($periodFrom && $periodTo) {
+                $this->_whereDate = " AND date BETWEEN '$periodFrom' AND '$periodTo'";
+            } else {
+                if ($periodFrom) {
+                    $this->_whereDate = " AND date >= '$periodFrom'";
+                }
+                if ($periodTo) {
+                    $this->_whereDate = " AND date <= '$periodTo'";
+                }
+            }
+            $sql .= $this->_whereDate." ORDER BY group_id";
 
-        $rows = array();
-        $this->buildRows($sql, $rows);
+            $rows = array();
+            $this->buildRows($sql, $rows);
+        }
 
         $this->formatDisplay($rows);
         $this->doTemplateAssignment($rows);
