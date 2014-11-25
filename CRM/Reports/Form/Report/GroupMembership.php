@@ -111,8 +111,9 @@ class CRM_Reports_Form_Report_GroupMembership extends CRM_Report_Form {
             where csh1.group_id in (".$parentGroup['children'].") and `date` = (
               SELECT max(`date`) 
               FROM civicrm_subscription_history csh2
+              INNER JOIN civicrm_contact c on csh2.contact_id = c.id
               WHERE csh2.group_id = csh1.group_id AND csh2.contact_id = csh1.contact_id
-                and `date` <= '".$periodFrom."'
+                and `date` <= '".$periodFrom."' AND c.is_deleted !=  '1'
             ) and `status` = 'Added'
             GROUP BY csh1.group_id;";
 
@@ -128,8 +129,9 @@ class CRM_Reports_Form_Report_GroupMembership extends CRM_Report_Form {
             where csh1.group_id in (".$parentGroup['children'].") and `date` = (
               SELECT max(`date`) 
               FROM civicrm_subscription_history csh2
+              INNER JOIN civicrm_contact c on csh2.contact_id = c.id
               WHERE csh2.group_id = csh1.group_id AND csh2.contact_id = csh1.contact_id
-                and `date` <= '".$periodTo."'
+                and `date` <= '".$periodTo."' AND c.is_deleted !=  '1'
             ) and `status` = 'Added'
             GROUP BY csh1.group_id;";
     $dao = CRM_Core_DAO::executeQuery($sql);
