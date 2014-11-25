@@ -140,7 +140,11 @@ class CRM_Reports_Form_Report_GroupMembership extends CRM_Report_Form {
         $rows[$dao->group_id]['members_end'] = $dao->total;
         
         $growth = $rows[$dao->group_id]['members_end'] - $rows[$dao->group_id]['members_start'];
-        $percentage = abs($growth) * 100 / $rows[$dao->group_id]['members_start'];
+        if ($rows[$dao->group_id]['members_start'] == 0) {
+          $percentage = $growth * 100;
+        } else {
+          $percentage = abs($growth) * 100 / $rows[$dao->group_id]['members_start'];
+        }
         if ($growth > 0) {
           $rows[$dao->group_id]['growth'] = '+'.abs($growth).' (<span style="color:green">+'.number_format($percentage, 2).'%</span>)';
         } elseif ($growth < 0) {
