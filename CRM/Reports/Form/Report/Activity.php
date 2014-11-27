@@ -44,7 +44,7 @@ class CRM_Reports_Form_Report_Activity extends CRM_Report_Form_Activity {
     );
     $this->_columns['civicrm_activity']['filters']['details'] = array(
       'title' => ts('Details'),
-      'type' => CRM_Utils_Type::T_TEXT,
+      'type' => CRM_Utils_Type::T_STRING,
     );
   }
 }
