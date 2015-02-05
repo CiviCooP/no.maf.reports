@@ -79,7 +79,7 @@ class CRM_Reports_Form_Report_GroupMembership extends CRM_Report_Form {
      * retrieve all subscription history in selected period for 
      * child groups of parent selected
      */
-    $submitValues = $this->getVar('_submitValues');
+    $submitValues = $this->_params;
     /*
      * retrieve children from selected parents
      */
