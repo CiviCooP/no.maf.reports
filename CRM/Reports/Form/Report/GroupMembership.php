@@ -7,6 +7,7 @@ class CRM_Reports_Form_Report_GroupMembership extends CRM_Report_Form {
   protected $_summary = NULL;
   protected $_customGroupExtends = array();
   protected $_customGroupGroupBy = FALSE;
+  protected $_noFields = TRUE;
 
   function __construct() {
 
