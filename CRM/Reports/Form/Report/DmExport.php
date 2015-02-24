@@ -96,9 +96,9 @@ class CRM_Reports_Form_Report_DmExport extends CRM_Report_Form {
          * contribution entity
          */
         $this->_from = 
-			"FROM civicrm_activity_target at
-			INNER JOIN civicrm_activity act ON act.id = at.activity_id
-			LEFT JOIN civicrm_contact contact ON at.target_contact_id = contact.id
+			"FROM civicrm_activity_contact ac
+			INNER JOIN civicrm_activity act ON act.id = ac.activity_id
+			LEFT JOIN civicrm_contact contact ON ac.contact_id = contact.id
 			LEFT JOIN civicrm_address address ON contact.id = address.contact_id AND address.is_primary = 1
 			LEFT JOIN civicrm_country country ON address.country_id = country.id
 			LEFT JOIN ".$this->aksjon_table." ON act.id = ".$this->aksjon_table.".entity_id";
@@ -107,7 +107,7 @@ class CRM_Reports_Form_Report_DmExport extends CRM_Report_Form {
     function where() {
 		$DM_with_kid_type_id = $this->dm_activity_type_id; //DM with KID activities
         $this->_where = NULL;
-        $this->_where = "WHERE act.activity_type_id = '".$DM_with_kid_type_id."'";
+        $this->_where = "WHERE ac.record_type_id = 3 AND act.activity_type_id = '".$DM_with_kid_type_id."'";
         if (isset($this->_submitValues['activity_from'])) {
             if (!empty($this->_submitValues['activity_from'])) {
                 $this->_where .= " AND act.activity_date_time >= '".date("Y-m-d", strtotime($this->_submitValues['activity_from']))."'";
