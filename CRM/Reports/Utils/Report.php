@@ -1,9 +1,8 @@
 <?php
-// $Id$
 
 /*
  +--------------------------------------------------------------------+
- | CiviCRM version 4.3                                                |
+ | CiviCRM version 4.4                                                |
  +--------------------------------------------------------------------+
  | Copyright CiviCRM LLC (c) 2004-2013                                |
  +--------------------------------------------------------------------+
@@ -26,9 +25,9 @@
  | see the CiviCRM license FAQ at http://civicrm.org/licensing        |
  +--------------------------------------------------------------------+
  | BOS1405148 - add linked activity and donor group for contribution  |
- |              when report Contribution Detail. Hackish, but limited |
- |              funding at MAF                                        |
- |              Erik Hommel <erik.hommel@civicoop.org>                | 
+ | when report Contribution Detail. Hackish, but limited              |
+ | funding at MAF                                                     |
+ | Erik Hommel <erik.hommel@civicoop.org>                             |
  +--------------------------------------------------------------------+
 */
 
@@ -43,9 +42,9 @@ class CRM_Report_Utils_Report {
 
   static function getValueFromUrl($instanceID = NULL) {
     if ($instanceID) {
-      $optionVal = CRM_Core_DAO::getFieldValue('CRM_Report_DAO_Instance',
-        $instanceID,
-        'report_id'
+      $optionVal = CRM_Core_DAO::getFieldValue('CRM_Report_DAO_ReportInstance',
+          $instanceID,
+          'report_id'
       );
     }
     else {
@@ -109,14 +108,14 @@ WHERE  TRIM(BOTH '/' FROM CONCAT(report_id, '/', name)) = %1";
     if ($instanceID) {
       $drilldownInstanceID = false;
       if (array_key_exists($urlValue, $drilldownReport))
-        $drilldownInstanceID = CRM_Core_DAO::getFieldValue('CRM_Report_DAO_Instance', $instanceID, 'drilldown_id', 'id');
+        $drilldownInstanceID = CRM_Core_DAO::getFieldValue('CRM_Report_DAO_ReportInstance', $instanceID, 'drilldown_id', 'id');
 
       if (!$drilldownInstanceID)
         $drilldownInstanceID = self::getInstanceIDForValue($urlValue);
 
       if ($drilldownInstanceID) {
         return CRM_Utils_System::url("civicrm/report/instance/{$drilldownInstanceID}",
-          "{$query}", $absolute
+            "{$query}", $absolute
         );
       }
       else {
@@ -125,13 +124,15 @@ WHERE  TRIM(BOTH '/' FROM CONCAT(report_id, '/', name)) = %1";
     }
     else {
       return CRM_Utils_System::url("civicrm/report/" . trim($urlValue, '/'),
-        $query, $absolute
+          $query, $absolute
       );
     }
   }
 
   // get instance count for a template
   static function getInstanceCount($optionVal) {
+    if (empty($optionVal)) return 0;
+
     $sql = "
 SELECT count(inst.id)
 FROM   civicrm_report_instance inst
@@ -143,20 +144,20 @@ WHERE  inst.report_id = %1";
   }
 
   static function mailReport($fileContent, $instanceID = NULL, $outputMode = 'html', $attachments = array(
-    )) {
+  )) {
     if (!$instanceID) {
       return FALSE;
     }
 
     list($domainEmailName,
-      $domainEmailAddress
-    ) = CRM_Core_BAO_Domain::getNameAndEmail();
+        $domainEmailAddress
+        ) = CRM_Core_BAO_Domain::getNameAndEmail();
 
     $params = array('id' => $instanceID);
     $instanceInfo = array();
-    CRM_Core_DAO::commonRetrieve('CRM_Report_DAO_Instance',
-      $params,
-      $instanceInfo
+    CRM_Core_DAO::commonRetrieve('CRM_Report_DAO_ReportInstance',
+        $params,
+        $instanceInfo
     );
 
     $params              = array();
@@ -179,8 +180,8 @@ WHERE  inst.report_id = %1";
 
   static function export2csv(&$form, &$rows) {
     /*
-     * BOS1405148 - add linked activity and donorgroup to csv if Contribution Detail Report
-     */
+    * BOS1405148 - add linked activity and donorgroup to csv if Contribution Detail Report
+    */
     $formName = get_class($form);
     if ($formName == 'CRM_Report_Form_Contribute_Detail' && !empty($rows)) {
       foreach ($rows as &$row) {
@@ -205,15 +206,15 @@ WHERE  inst.report_id = %1";
       }
     }
     $form->_columnHeaders['civicrm_contribution_linked_activity_id'] = array(
-      'title' => ts('Linked Activity Id'), 'type' => NULL);
+        'title' => ts('Linked Activity Id'), 'type' => NULL);
     $form->_columnHeaders['civicrm_contribution_linked_activity_type'] = array(
-      'title' => ts('Linked Activity Type'), 'type' => 2);
+        'title' => ts('Linked Activity Type'), 'type' => 2);
     $form->_columnHeaders['civicrm_contribution_linked_activity_subject'] = array(
-      'title' => ts('Linked Activity Subject'), 'type' => 2);
+        'title' => ts('Linked Activity Subject'), 'type' => 2);
     $form->_columnHeaders['civicrm_contribution_donorgroup_id'] = array(
-      'title' => ts('Donorgroup Id'), 'type' => NULL);
+        'title' => ts('Donorgroup Id'), 'type' => NULL);
     $form->_columnHeaders['civicrm_contribution_donorgroup_title'] = array(
-      'title' => ts('Donorgroup Title'), 'type' => 2);
+        'title' => ts('Donorgroup Title'), 'type' => 2);
 
     //Mark as a CSV file.
     header('Content-Type: text/csv');
@@ -224,10 +225,11 @@ WHERE  inst.report_id = %1";
     echo self::makeCsv($form, $rows);
     CRM_Utils_System::civiExit();
   }
+
   /**
    * Function to retrieve linked contribution activity and donorgroup
    * BOS1405148
-   * 
+   *
    * @author Erik Hommel (CiviCooP) <erik.hommel@civicoop.org>
    * @date 17 Jun 2014
    * @param int $contributionId
@@ -239,12 +241,12 @@ WHERE  inst.report_id = %1";
     $linkedData = array();
     if (!empty($contributionId)) {
       $qryAct = 'SELECT act.id, act.subject, ov.label AS activity_type '
-        . 'FROM civicrm_contribution_activity contr '
-        . 'JOIN civicrm_activity act ON contr.activity_id = act.id '
-        . 'LEFT JOIN civicrm_option_value ov ON act.activity_type_id = ov.value AND ov.option_group_id = 2 '
-        . 'WHERE act.is_current_revision = %1 AND contr.contribution_id = %2';
+          . 'FROM civicrm_contribution_activity contr '
+          . 'JOIN civicrm_activity act ON contr.activity_id = act.id '
+          . 'LEFT JOIN civicrm_option_value ov ON act.activity_type_id = ov.value AND ov.option_group_id = 2 '
+          . 'WHERE act.is_current_revision = %1 AND contr.contribution_id = %2';
       $paramsAct = array(
-        1 => array(1, 'Positive'), 2 => array($contributionId, 'Positive'));
+          1 => array(1, 'Positive'), 2 => array($contributionId, 'Positive'));
       $daoAct = CRM_Core_DAO::executeQuery($qryAct, $paramsAct);
       if ($daoAct->fetch()) {
         $linkedData['activity_id'] = $daoAct->id;
@@ -252,11 +254,11 @@ WHERE  inst.report_id = %1";
         $linkedData['activity_subject'] = $daoAct->subject;
       }
       $qryGrp = 'SELECT contr.group_id, grp.title '
-        . 'FROM civicrm_contribution_donorgroup contr '
-        . 'JOIN civicrm_group grp ON contr.group_id = grp.id '
-        . 'WHERE contr.contribution_id = %1';
+          . 'FROM civicrm_contribution_donorgroup contr '
+          . 'JOIN civicrm_group grp ON contr.group_id = grp.id '
+          . 'WHERE contr.contribution_id = %1';
       $paramsGrp = array(
-        1 => array($contributionId, 'Positive'));
+          1 => array($contributionId, 'Positive'));
       $daoGrp = CRM_Core_DAO::executeQuery($qryGrp, $paramsGrp);
       if ($daoGrp->fetch()) {
         $linkedData['donorgroup_id'] = $daoGrp->group_id;
@@ -285,8 +287,8 @@ WHERE  inst.report_id = %1";
     }
     // Add the headers.
     $csv .= implode($config->fieldSeparator,
-      $headers
-    ) . "\r\n";
+            $headers
+        ) . "\r\n";
 
     $displayRows = array();
     $value = NULL;
@@ -299,7 +301,7 @@ WHERE  inst.report_id = %1";
 
           if (CRM_Utils_Array::value('type', $form->_columnHeaders[$v]) & 4) {
             if (CRM_Utils_Array::value('group_by', $form->_columnHeaders[$v]) == 'MONTH' ||
-              CRM_Utils_Array::value('group_by', $form->_columnHeaders[$v]) == 'QUARTER'
+                CRM_Utils_Array::value('group_by', $form->_columnHeaders[$v]) == 'QUARTER'
             ) {
               $value = CRM_Utils_Date::customFormat($value, $config->dateformatPartial);
             }
@@ -321,8 +323,8 @@ WHERE  inst.report_id = %1";
       }
       // Add the data row.
       $csv .= implode($config->fieldSeparator,
-        $displayRows
-      ) . "\r\n";
+              $displayRows
+          ) . "\r\n";
     }
 
     return $csv;
@@ -334,7 +336,7 @@ WHERE  inst.report_id = %1";
     $arg = explode('/', $_GET[$config->userFrameworkURLVar]);
 
     if ($arg[1] == 'report' &&
-      CRM_Utils_Array::value(2, $arg) == 'instance'
+        CRM_Utils_Array::value(2, $arg) == 'instance'
     ) {
       if (CRM_Utils_Rule::positiveInteger($arg[3])) {
         return $arg[3];
@@ -347,7 +349,7 @@ WHERE  inst.report_id = %1";
     $arg = explode('/', $_GET[$config->userFrameworkURLVar]);
 
     if ($arg[1] == 'report' &&
-      CRM_Utils_Array::value(2, $arg) == 'instance'
+        CRM_Utils_Array::value(2, $arg) == 'instance'
     ) {
       unset($arg[0], $arg[1], $arg[2]);
       $path = trim(CRM_Utils_Type::escape(implode('/', $arg), 'String'), '/');
@@ -362,14 +364,14 @@ WHERE  inst.report_id = %1";
 
     $instanceValues = array();
     $params = array('id' => $instanceId);
-    CRM_Core_DAO::commonRetrieve('CRM_Report_DAO_Instance',
-      $params,
-      $instanceValues
+    CRM_Core_DAO::commonRetrieve('CRM_Report_DAO_ReportInstance',
+        $params,
+        $instanceValues
     );
 
     if (!empty($instanceValues['permission']) &&
-      (!(CRM_Core_Permission::check($instanceValues['permission']) ||
-          CRM_Core_Permission::check('administer Reports')
+        (!(CRM_Core_Permission::check($instanceValues['permission']) ||
+            CRM_Core_Permission::check('administer Reports')
         ))
     ) {
       return FALSE;
@@ -394,17 +396,17 @@ WHERE  inst.report_id = %1";
 
     $instanceValues = array();
     $params = array('id' => $instanceId);
-    CRM_Core_DAO::commonRetrieve('CRM_Report_DAO_Instance',
-      $params,
-      $instanceValues
+    CRM_Core_DAO::commonRetrieve('CRM_Report_DAO_ReportInstance',
+        $params,
+        $instanceValues
     );
     //transform grouprole to array
     if (!empty($instanceValues['grouprole'])) {
       $grouprole_array = explode(CRM_Core_DAO::VALUE_SEPARATOR,
-        $instanceValues['grouprole']
+          $instanceValues['grouprole']
       );
       if (!CRM_Core_Permission::checkGroupRole($grouprole_array) &&
-        !CRM_Core_Permission::check('administer Reports')
+          !CRM_Core_Permission::check('administer Reports')
       ) {
         return FALSE;
       }
@@ -431,7 +433,7 @@ WHERE  inst.report_id = %1";
     $is_error     = 0;
     if (strstr(CRM_Utils_Array::value('name', $templateInfo), '_Form')) {
       $instanceInfo = array();
-      CRM_Report_BAO_Instance::retrieve(array('id' => $instanceId), $instanceInfo);
+      CRM_Report_BAO_ReportInstance::retrieve(array('id' => $instanceId), $instanceInfo);
 
       if (!empty($instanceInfo['title'])) {
         $obj->assign('reportTitle', $instanceInfo['title']);
@@ -442,15 +444,15 @@ WHERE  inst.report_id = %1";
 
       $wrapper = new CRM_Utils_Wrapper();
       $arguments = array(
-        'urlToSession' => array(
-          array(
-            'urlVar' => 'instanceId',
-            'type' => 'Positive',
-            'sessionVar' => 'instanceId',
-            'default' => 'null',
+          'urlToSession' => array(
+              array(
+                  'urlVar' => 'instanceId',
+                  'type' => 'Positive',
+                  'sessionVar' => 'instanceId',
+                  'default' => 'null',
+              ),
           ),
-        ),
-        'ignoreKey' => TRUE
+          'ignoreKey' => TRUE
       );
       $messages[] = $wrapper->run($templateInfo['name'], NULL, $arguments);
     }
@@ -465,8 +467,8 @@ WHERE  inst.report_id = %1";
     }
 
     $result = array(
-      'is_error' => $is_error,
-      'messages' => implode("\n", $messages),
+        'is_error' => $is_error,
+        'messages' => implode("\n", $messages),
     );
     return $result;
   }
@@ -482,7 +484,7 @@ WHERE  inst.report_id = %1";
    * @return string URL query string
    */
   static function getPreviewCriteriaQueryParams($defaults = array(
-    ), $params = array()) {
+  ), $params = array()) {
     static $query_string;
     if (!isset($query_string)) {
       if (!empty($params)) {
@@ -505,8 +507,8 @@ WHERE  inst.report_id = %1";
           $suffix          = substr($field_name, $suffix_position);
           $basename        = substr($field_name, 0, $suffix_position);
           if ($suffix == '_min' || $suffix == '_max' ||
-            $suffix == '_from' || $suffix == '_to' ||
-            $suffix == '_relative'
+              $suffix == '_from' || $suffix == '_to' ||
+              $suffix == '_relative'
           ) {
             // For these types, we only keep them if they have a value.
             if (!empty($field_value)) {
