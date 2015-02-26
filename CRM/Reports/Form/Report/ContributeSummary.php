@@ -10,6 +10,20 @@ class CRM_Reports_Form_Report_ContributeSummary extends CRM_Report_Form_Contribu
         self::getCustomFields();
         parent::__construct();
 
+        $this->_columns['civicrm_contribution_donor_group'] = array(
+            'fields' => array(
+                'group_id' => array(
+                    'title' => ts('Donor Group'),
+                )
+            ),
+            'grouping' => 'contri-fields',
+            'group_bys' => array(
+                'group_id' => array(
+                    'title' => ts('Donor group'),
+                    'chart' => true,
+                ),
+            )
+        );
 
         if (isset($this->_columns[self::$_nets_transaction['table_name']])) {
             $earmarking = 'custom_'.self::$_earmarking_field['id'];
@@ -17,6 +31,11 @@ class CRM_Reports_Form_Report_ContributeSummary extends CRM_Report_Form_Contribu
                 $this->_columns[self::$_nets_transaction['table_name']]['group_bys'][$earmarking]['chart'] = true;
             }
         }
+    }
+
+    function from() {
+        parent::from();
+        $this->_from .= " LEFT JOIN `civicrm_contribution_donorgroup` `{$this->_aliases['civicrm_contribution_donor_group']}` ON `{$this->_aliases['civicrm_contribution']}`.`id` = `{$this->_aliases['civicrm_contribution_donor_group']}`.`contribution_id`";
     }
 
     protected static function getCustomFields() {
@@ -40,7 +59,7 @@ class CRM_Reports_Form_Report_ContributeSummary extends CRM_Report_Form_Contribu
 
 
         $earmarking = 'custom_'.self::$_earmarking_field['id'];
-        if (!CRM_Utils_Array::value('receive_date', $fields['group_bys']) && !CRM_Utils_Array::value($earmarking, $fields['group_bys'])) {
+        if (!CRM_Utils_Array::value('receive_date', $fields['group_bys']) && !CRM_Utils_Array::value($earmarking, $fields['group_bys']) && !CRM_Utils_Array::value('group_id', $fields['group_bys'])) {
             if (CRM_Utils_Array::value('receive_date_relative', $fields) ||
                 CRM_Utils_Date::isDate($fields['receive_date_from']) ||
                 CRM_Utils_Date::isDate($fields['receive_date_to'])
@@ -66,20 +85,9 @@ class CRM_Reports_Form_Report_ContributeSummary extends CRM_Report_Form_Contribu
         if (CRM_Utils_Array::value('charts', $this->_params)) {
             $nets_transaction = self::$_nets_transaction['table_name'];
             $earmarking_field = 'custom_'.self::$_earmarking_field['id'];
-            if (CRM_Utils_Array::value('receive_date', $this->_params['group_bys']) || CRM_Utils_Array::value($earmarking_field, $this->_params['group_bys'])) {
-
+            if (CRM_Utils_Array::value('receive_date', $this->_params['group_bys'])) {
                 $contrib = CRM_Utils_Array::value('total_amount', $this->_params['fields']) ? TRUE : FALSE;
                 $softContrib = CRM_Utils_Array::value('soft_amount', $this->_params['fields']) ? TRUE : FALSE;
-                $earmarking = CRM_Utils_Array::value($earmarking_field, $this->_params['fields']) ? TRUE : FALSE;
-                $earmarking_key = false;
-                if ($earmarking) {
-                    $earmarking_key = 0;
-                    if ($softContrib && $contrib) {
-                        $earmarking_key = 2;
-                    } elseif ($softContrib || $contrib) {
-                        $earmarking_key = 1;
-                    }
-                }
 
                 foreach ($rows as $key => $row) {
                     if (isset($row['civicrm_contribution_receive_date_subtotal'])) {
@@ -97,54 +105,56 @@ class CRM_Reports_Form_Report_ContributeSummary extends CRM_Report_Form_Contribu
                             $graphRows['multiValue'][0][] = $row['civicrm_contribution_total_amount_sum'];
                         }
                     }
-                    if (isset($row[$nets_transaction.'_'.$earmarking_field]) && $earmarking_key) {
-                        //var_dump($row); exit();
-                        $label = $row[$nets_transaction.'_'.$earmarking_field];
-                        if ($softContrib && $contrib) {
-                            // both contri & soft contri stats are present
-                            $graphRows['multiValue'][$earmarking_key][$label] = $row['civicrm_contribution_total_amount_sum'];
-                            $graphRows['multiValue'][$earmarking_key+1][$label] = $row['civicrm_contribution_soft_soft_amount_sum'];
-                        } else if ($softContrib) {
-                            // only soft contributions
-                            $graphRows['multiValue'][$earmarking_key][$label] = $row['civicrm_contribution_soft_soft_amount_sum'];
-                        } else {
-                            // only contributions
-                            $graphRows['multiValue'][$earmarking_key][$label] = $row['civicrm_contribution_total_amount_sum'];
-                        }
-                    }
                 }
 
-                $onlyEarmarking = false;
                 if ($softContrib && $contrib) {
                     $graphRows['barKeys'][0] = ts('Contributions');
                     $graphRows['barKeys'][1] = ts('Soft Credits');
                     $graphRows['legend'] = ts('Contributions and Soft Credits');
                 } else if ($softContrib) {
                     $graphRows['legend'] = ts('Soft Credits');
-                } elseif ($earmarking_key) {
-                    $graphRows['legend'] = self::$_earmarking_field['label'];
-                    $onlyEarmarking = true;
-                }
-                if ($earmarking_key) {
-                    $graphRows['barKeys'][$earmarking_key] = self::$_earmarking_field['label'];
-                    if ($softContrib && $contrib) {
-                        $graphRows['barKeys'][$earmarking_key+1] = self::$_earmarking_field['label'].' ('.ts('Soft Credits').')';
-                    }
                 }
 
                 // build the chart.
                 $config             = CRM_Core_Config::Singleton();
                 $graphRows['yname'] = "Amount ({$config->defaultCurrency})";
-                if (!$onlyEarmarking) {
-                    $graphRows['xname'] = $this->_interval;
-                    CRM_Utils_OpenFlashChart::chart($graphRows, $this->_params['charts'], $this->_interval);
-                } else {
-                    $graphRows['xname'] = $earmarking_field;
-
-                    $graphRows['values'] = $graphRows['multiValue'][$earmarking_key];
-                    $graphRows['multiValues'][0] = $graphRows['multiValue'][$earmarking_key];
-                    CRM_Utils_OpenFlashChart::buildChart($graphRows, $this->_params['charts']);
+                $graphRows['xname'] = $this->_interval;
+                CRM_Utils_OpenFlashChart::chart($graphRows, $this->_params['charts'], $this->_interval);
+                $this->assign('chartType', $this->_params['charts']);
+            } elseif (CRM_Utils_Array::value($earmarking_field, $this->_params['group_bys'])) {
+                foreach ($rows as $key => $row) {
+                    if (isset($row[$nets_transaction.'_'.$earmarking_field])) {
+                        $label = $row[$nets_transaction.'_'.$earmarking_field];
+                        $graphRows['multiValue'][0][$label] = $row['civicrm_contribution_total_amount_sum'];
+                    }
                 }
+
+                $graphRows['barKeys'][0] = self::$_earmarking_field['label'];
+
+                // build the chart.
+                $config             = CRM_Core_Config::Singleton();
+                $graphRows['yname'] = "Amount ({$config->defaultCurrency})";
+                $graphRows['xname'] = self::$_earmarking_field['label'];;
+                $graphRows['values'] = $graphRows['multiValue'][0];
+                $graphRows['multiValues'][0] = $graphRows['multiValue'][0];
+                CRM_Utils_OpenFlashChart::buildChart($graphRows, $this->_params['charts']);
+                $this->assign('chartType', $this->_params['charts']);
+            } elseif (CRM_Utils_Array::value('group_id', $this->_params['group_bys'])) {
+                foreach ($rows as $key => $row) {
+                    if (isset($row['civicrm_contribution_donor_group_group_id'])) {
+                        $label = $row['civicrm_contribution_donor_group_group_id'];
+                        $graphRows['multiValues'][0][$label] = $row['civicrm_contribution_total_amount_sum'];
+                    }
+                }
+
+                $graphRows['barKeys'][0] = 'Donor group';
+
+                // build the chart.
+                $config             = CRM_Core_Config::Singleton();
+                $graphRows['yname'] = "Amount ({$config->defaultCurrency})";
+                $graphRows['xname'] = 'Donor group';
+                $graphRows['values'] = $graphRows['multiValues'][0];
+                CRM_Utils_OpenFlashChart::buildChart($graphRows, $this->_params['charts']);
                 $this->assign('chartType', $this->_params['charts']);
             }
         }
