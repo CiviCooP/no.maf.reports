@@ -1,5 +1,7 @@
 <?php
 
+require_once 'packages/OpenFlashChart/php-ofc-library/open-flash-chart.php';
+
 class CRM_Reports_Form_Report_ContributeSummary extends CRM_Report_Form_Contribute_Summary
 {
 
@@ -128,6 +130,8 @@ class CRM_Reports_Form_Report_ContributeSummary extends CRM_Report_Form_Contribu
                 CRM_Utils_OpenFlashChart::chart($graphRows, $this->_params['charts'], $this->_interval);
                 $this->assign('chartType', $this->_params['charts']);
             } elseif (CRM_Utils_Array::value($earmarking_field, $this->_params['group_bys'])) {
+                $config = CRM_Core_Config::Singleton();
+                $symbol = $config->defaultCurrencySymbol;
                 foreach ($rows as $key => $row) {
                     if (isset($row[$nets_transaction . '_' . $earmarking_field])) {
                         $value = $row[$nets_transaction . '_' . $earmarking_field];
@@ -135,48 +139,207 @@ class CRM_Reports_Form_Report_ContributeSummary extends CRM_Report_Form_Contribu
                             1 => array(self::$_earmarking_field['option_group_id'], 'Integer'),
                             2 => array($value, 'String'),
                         ));
-                        if ($this->_params['charts'] == 'barChart') {
-                            $label = $value; //with barChart the labels arent displayed correctly
-                        }
-                        $graphRows['multiValue'][0][$label] = $row['civicrm_contribution_total_amount_sum'];
+                        $graphRows['multiValues'][0][$label] = $row['civicrm_contribution_total_amount_sum'];
 
                     }
                 }
 
                 $graphRows['barKeys'][0] = self::$_earmarking_field['label'];
-
-                // build the chart.
-                $config = CRM_Core_Config::Singleton();
                 $graphRows['yname'] = "Amount ({$config->defaultCurrency})";
                 $graphRows['xname'] = self::$_earmarking_field['label'];;
-                $graphRows['values'] = $graphRows['multiValue'][0];
-                $graphRows['multiValues'][0] = $graphRows['multiValue'][0];
-                CRM_Utils_OpenFlashChart::buildChart($graphRows, $this->_params['charts']);
+                $graphRows['values'] = $graphRows['multiValues'][0];
+                $this->buildOfcChart($graphRows, $this->_params['charts']);
                 $this->assign('chartType', $this->_params['charts']);
             } elseif (CRM_Utils_Array::value('group_id', $this->_params['group_bys'])) {
+                $config = CRM_Core_Config::Singleton();
+                $symbol = $config->defaultCurrencySymbol;
                 foreach ($rows as $key => $row) {
                     if (isset($row['civicrm_contribution_donor_group_group_id'])) {
                         $value = $row['civicrm_contribution_donor_group_group_id'];
                         $label = CRM_Core_DAO::singleValueQuery("SELECT title from civicrm_group where id = %1", array(
                             1 => array($value, 'Integer'),
                         ));
-                        if ($this->_params['charts'] == 'barChart') {
-                            $label = $value; //with barChart the labels arent displayed correctly
-                        }
                         $graphRows['multiValues'][0][$label] = $row['civicrm_contribution_total_amount_sum'];
                     }
                 }
 
                 $graphRows['barKeys'][0] = 'Donor group';
-
-                // build the chart.
-                $config = CRM_Core_Config::Singleton();
+                $graphRows['tip'] = "#x_label#: $symbol #val#";
                 $graphRows['yname'] = "Amount ({$config->defaultCurrency})";
                 $graphRows['xname'] = 'Donor group';
                 $graphRows['values'] = $graphRows['multiValues'][0];
-                CRM_Utils_OpenFlashChart::buildChart($graphRows, $this->_params['charts']);
+                $this->buildOfcChart($graphRows, $this->_params['charts']);
                 $this->assign('chartType', $this->_params['charts']);
             }
         }
+    }
+
+    function buildOfcChart(&$params, $chart) {
+        if ($chart != 'barChart') {
+            return CRM_Utils_OpenFlashChart::buildChart($params, $chart);
+        }
+        $openFlashChart = array();
+        if ($chart && is_array($params) && !empty($params)) {
+            // build the chart objects.
+            $chartObj = $this->barChart($params);
+
+            $openFlashChart = array();
+            if ($chartObj) {
+                // calculate chart size.
+                $xSize = CRM_Utils_Array::value('xSize', $params, 400);
+                $ySize = CRM_Utils_Array::value('ySize', $params, 300);
+                if ($chart == 'barChart') {
+                    $ySize = CRM_Utils_Array::value('ySize', $params, 250);
+                    $xSize = 60 * count($params['values']);
+                    //hack to show tooltip.
+                    if ($xSize < 200) {
+                        $xSize = (count($params['values']) > 1) ? 100 * count($params['values']) : 170;
+                    }
+                    elseif ($xSize > 600 && count($params['values']) > 1) {
+                        $xSize = (count($params['values']) + 400 / count($params['values'])) * count($params['values']);
+                    }
+                }
+
+                // generate unique id for this chart instance
+                $uniqueId = md5(uniqid(rand(), TRUE));
+
+                $openFlashChart["chart_{$uniqueId}"]['size'] = array('xSize' => $xSize, 'ySize' => $ySize);
+                $openFlashChart["chart_{$uniqueId}"]['object'] = $chartObj;
+
+                // assign chart data to template
+                $template = CRM_Core_Smarty::singleton();
+                $template->assign('uniqueId', $uniqueId);
+                $template->assign("openFlashChartData", json_encode($openFlashChart));
+            }
+        }
+
+        return $openFlashChart;
+    }
+
+    function &barChart(&$params) {
+        $chart = NULL;
+        if (empty($params)) {
+            return $chart;
+        }
+        if (!CRM_Utils_Array::value('multiValues', $params)) {
+            $params['multiValues'] = array($params['values']);
+        }
+
+        $values = CRM_Utils_Array::value('multiValues', $params);
+        if (!is_array($values) || empty($values)) {
+            return $chart;
+        }
+
+        // get the required data.
+        $chartTitle = CRM_Utils_Array::value('legend', $params) ? $params['legend'] : ts('Bar Chart');
+
+        $xValues = $yValues = array();
+        $xValues = array_keys($values[0]);
+        $yValues = array_values($values[0]);
+
+        //set y axis parameters.
+        $yMin = 0;
+
+        // calculate max scale for graph.
+        $yMax = ceil(max($yValues));
+        if ($mod = $yMax % (str_pad(5, strlen($yMax) - 1, 0))) {
+            $yMax += str_pad(5, strlen($yMax) - 1, 0) - $mod;
+        }
+        $ySteps = $yMax / 5;
+
+        $bars = array();
+        $config = CRM_Core_Config::singleton();
+        $symbol = $config->defaultCurrencySymbol;
+        foreach ($values as $barCount => $barVal) {
+            $bars[$barCount] = new bar_glass();
+
+            $yValues = array();
+            foreach ($barVal as $label => $yVal) {
+                // type casting is required for chart to render values correctly
+                if (!$yVal instanceof bar_value) {
+                    $yVal = (double)$yVal;
+                    $yVal = new bar_value($yVal);
+                    $yVal->set_tooltip($label.": $symbol #val#");
+                    $yValues[] = $yVal;
+                }
+
+            }
+            $bars[$barCount]->set_values($yValues);
+            if ($barCount > 0) {
+                // FIXME: for bars > 2, we'll need to come out with other colors
+                $bars[$barCount]->colour( '#BF3B69');
+            }
+
+            if ($barKey = CRM_Utils_Array::value($barCount, CRM_Utils_Array::value('barKeys', $params))) {
+                $bars[$barCount]->key($barKey,12);
+            }
+
+            // call user define function to handle on click event.
+            if ($onClickFunName = CRM_Utils_Array::value('on_click_fun_name', $params)) {
+                $bars[$barCount]->set_on_click($onClickFunName);
+            }
+
+            // get the currency to set in tooltip.
+            $tooltip = CRM_Utils_Array::value('tip', $params, "$symbol #val#");
+            $bars[$barCount]->set_tooltip($tooltip);
+        }
+
+        // create x axis label obj.
+        $xLabels = new x_axis_labels();
+        // set_labels function requires xValues array of string or x_axis_label
+        // so type casting array values to string values
+        array_walk($xValues, function(&$value, $index) {
+            $value = trim(substr((string) $value, 0, 3));
+        });
+        $xLabels->set_labels($xValues);
+
+        // set angle for labels.
+        if ($xLabelAngle = CRM_Utils_Array::value('xLabelAngle', $params)) {
+            $xLabels->rotate($xLabelAngle);
+        }
+
+        // create x axis obj.
+        $xAxis = new x_axis();
+        $xAxis->set_labels($xLabels);
+
+        //create y axis and set range.
+        $yAxis = new y_axis();
+        $yAxis->set_range($yMin, $yMax, $ySteps);
+
+        // create chart title obj.
+        $title = new title($chartTitle);
+
+        // create chart.
+        $chart = new open_flash_chart();
+
+        // add x axis w/ labels to chart.
+        $chart->set_x_axis($xAxis);
+
+        // add y axis values to chart.
+        $chart->add_y_axis($yAxis);
+
+        // set title to chart.
+        $chart->set_title($title);
+
+        // add bar element to chart.
+        foreach ($bars as $bar) {
+            $chart->add_element($bar);
+        }
+
+        // add x axis legend.
+        if ($xName = CRM_Utils_Array::value('xname', $params)) {
+            $xLegend = new x_legend($xName);
+            $xLegend->set_style("{font-size: 13px; color:#000000; font-family: Verdana; text-align: center;}");
+            $chart->set_x_legend($xLegend);
+        }
+
+        // add y axis legend.
+        if ($yName = CRM_Utils_Array::value('yname', $params)) {
+            $yLegend = new y_legend($yName);
+            $yLegend->set_style("{font-size: 13px; color:#000000; font-family: Verdana; text-align: center;}");
+            $chart->set_y_legend($yLegend);
+        }
+
+        return $chart;
     }
 }
