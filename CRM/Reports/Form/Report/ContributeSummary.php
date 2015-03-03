@@ -135,6 +135,9 @@ class CRM_Reports_Form_Report_ContributeSummary extends CRM_Report_Form_Contribu
                             1 => array(self::$_earmarking_field['option_group_id'], 'Integer'),
                             2 => array($value, 'String'),
                         ));
+                        if ($this->_params['charts'] == 'barChart') {
+                            $label = $value; //with barChart the labels arent displayed correctly
+                        }
                         $graphRows['multiValue'][0][$label] = $row['civicrm_contribution_total_amount_sum'];
 
                     }
@@ -157,6 +160,9 @@ class CRM_Reports_Form_Report_ContributeSummary extends CRM_Report_Form_Contribu
                         $label = CRM_Core_DAO::singleValueQuery("SELECT title from civicrm_group where id = %1", array(
                             1 => array($value, 'Integer'),
                         ));
+                        if ($this->_params['charts'] == 'barChart') {
+                            $label = $value; //with barChart the labels arent displayed correctly
+                        }
                         $graphRows['multiValues'][0][$label] = $row['civicrm_contribution_total_amount_sum'];
                     }
                 }
