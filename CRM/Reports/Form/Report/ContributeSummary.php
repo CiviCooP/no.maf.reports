@@ -342,4 +342,91 @@ class CRM_Reports_Form_Report_ContributeSummary extends CRM_Report_Form_Contribu
 
         return $chart;
     }
+
+  function alterDisplay(&$rows) {
+    // custom code to alter rows
+
+    foreach ($rows as $rowNum => $row) {
+      if (isset($row['civicrm_contribution_donor_group_group_id']) && !empty($row['civicrm_contribution_donor_group_group_id'])) {
+        $groupTitle = civicrm_api3('Group', 'getvalue', array('id' => $row['civicrm_contribution_donor_group_group_id'], 'return' => 'title'));
+        $rows[$rowNum]['civicrm_contribution_donor_group_group_id'] = $groupTitle;
+      }
+
+      // make count columns point to detail report
+      if (CRM_Utils_Array::value('receive_date', $this->_params['group_bys']) &&
+        CRM_Utils_Array::value('civicrm_contribution_receive_date_start', $row) &&
+        CRM_Utils_Array::value('civicrm_contribution_receive_date_start', $row) &&
+        CRM_Utils_Array::value('civicrm_contribution_receive_date_subtotal', $row)
+      ) {
+
+        $dateStart = CRM_Utils_Date::customFormat($row['civicrm_contribution_receive_date_start'], '%Y%m%d');
+        $endDate   = new DateTime($dateStart);
+        $dateEnd   = array();
+
+        list($dateEnd['Y'], $dateEnd['M'], $dateEnd['d']) = explode(':', $endDate->format('Y:m:d'));
+
+        switch (strtolower($this->_params['group_bys_freq']['receive_date'])) {
+          case 'month':
+            $dateEnd = date("Ymd", mktime(0, 0, 0, $dateEnd['M'] + 1,
+              $dateEnd['d'] - 1, $dateEnd['Y']
+            ));
+            break;
+
+          case 'year':
+            $dateEnd = date("Ymd", mktime(0, 0, 0, $dateEnd['M'],
+              $dateEnd['d'] - 1, $dateEnd['Y'] + 1
+            ));
+            break;
+
+          case 'yearweek':
+            $dateEnd = date("Ymd", mktime(0, 0, 0, $dateEnd['M'],
+              $dateEnd['d'] + 6, $dateEnd['Y']
+            ));
+            break;
+
+          case 'quarter':
+            $dateEnd = date("Ymd", mktime(0, 0, 0, $dateEnd['M'] + 3,
+              $dateEnd['d'] - 1, $dateEnd['Y']
+            ));
+            break;
+        }
+        $url = CRM_Report_Utils_Report::getNextUrl('contribute/detail',
+          "reset=1&force=1&receive_date_from={$dateStart}&receive_date_to={$dateEnd}",
+          $this->_absoluteUrl,
+          $this->_id,
+          $this->_drilldownReport
+        );
+        $rows[$rowNum]['civicrm_contribution_receive_date_start_link'] = $url;
+        $rows[$rowNum]['civicrm_contribution_receive_date_start_hover'] = ts('List all contribution(s) for this date unit.');
+      }
+
+      // make subtotals look nicer
+      if (array_key_exists('civicrm_contribution_receive_date_subtotal', $row) &&
+        !$row['civicrm_contribution_receive_date_subtotal']
+      ) {
+        $this->fixSubTotalDisplay($rows[$rowNum], $this->_statFields);
+      }
+
+      // convert display name to links
+      if (array_key_exists('civicrm_contact_sort_name', $row) &&
+        array_key_exists('civicrm_contact_id', $row)
+      ) {
+        $url = CRM_Report_Utils_Report::getNextUrl('contribute/detail',
+          'reset=1&force=1&id_op=eq&id_value=' . $row['civicrm_contact_id'],
+          $this->_absoluteUrl, $this->_id, $this->_drilldownReport
+        );
+        $rows[$rowNum]['civicrm_contact_sort_name_link'] = $url;
+        $rows[$rowNum]['civicrm_contact_sort_name_hover'] = ts("Lists detailed contribution(s) for this record.");
+      }
+
+      // If using campaigns, convert campaign_id to campaign title
+      if (array_key_exists('civicrm_contribution_campaign_id', $row)) {
+        if ($value = $row['civicrm_contribution_campaign_id']) {
+          $rows[$rowNum]['civicrm_contribution_campaign_id'] = $this->activeCampaigns[$value];
+        }
+      }
+
+      $this->alterDisplayAddressFields($row, $rows, $rowNum, 'contribute/detail', 'List all contribution(s) for this ');
+    }
+  }
 }
